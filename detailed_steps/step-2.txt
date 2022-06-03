@@ -1,0 +1,3 @@
+### Create secret in Secrets Manager ###
+Create in Web Console, named "WordPress.DB"
+
