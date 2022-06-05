@@ -47,6 +47,7 @@ resource "aws_lb_listener" "alb-listner-1" {
 }
 
 
+
 resource "aws_security_group" "sg2" {
   name   = "sg2"
   vpc_id = var.vpc_id
@@ -68,6 +69,16 @@ resource "aws_security_group_rule" "inbound_http" {
   protocol          = "tcp"
   security_group_id = aws_security_group.sg2.id
   to_port           = 80
+  type              = "ingress"
+  cidr_blocks       = ["0.0.0.0/0"]
+}
+
+
+resource "aws_security_group_rule" "inbound_https" {
+  from_port         = 433
+  protocol          = "tcp"
+  security_group_id = aws_security_group.sg2.id
+  to_port           = 443
   type              = "ingress"
   cidr_blocks       = ["0.0.0.0/0"]
 }
@@ -121,5 +132,20 @@ resource "aws_route53_record" "record-1" {
     name                   = aws_lb.alb-1.dns_name
     zone_id                = aws_lb.alb-1.zone_id
     evaluate_target_health = true
+  }
+}
+
+
+#for HTTPS
+resource "aws_lb_listener" "alb-listner-2" {
+  load_balancer_arn = aws_lb.alb-1.arn
+  port              = 443
+  protocol          = "HTTPS"
+  ssl_policy        = "ELBSecurityPolicy-TLS-1-2-Ext-2018-06"
+  certificate_arn   = "${aws_acm_certificate.default.arn}"
+
+  default_action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.target-group-1.arn
   }
 }
