@@ -1,0 +1,34 @@
+### MODULE RDS ###
+terraform fmt -recursive
+terraform init
+terraform validate
+terraform plan
+terraform apply
+
+### PREPARE DB FROM BASTION HOST ###
+
+ssh-add -K ~/.ssh/my-key-pair-1.pem
+ssh -i ~/.ssh/my-key-pair-1.pem ubuntu@18.159.61.233 -A
+sudo apt install mysql-client-core-8.0
+
+mysql -P 3306 \
+-h terraform-20220604114142151400000001.crxqurw4k4xx.eu-central-1.rds.amazonaws.com \
+-u artem -p
+
+CREATE DATABASE wordpress;
+
+### MODULE EC2 AUTO SCALING GROUP ROUTE53 ###
+terraform fmt -recursive
+terraform init
+terraform validate
+terraform plan
+terraform apply
+
+###CHECK FROM BASTION###
+docker run --name WordPress -p 80:80 -d \
+-e WORDPRESS_DB_HOST='terraform-20220604114142151400000001.crxqurw4k4xx.eu-central-1.rds.amazonaws.com:3306' \
+-e WORDPRESS_DB_USER='artem' \
+-e WORDPRESS_DB_PASSWORD='JKL111jkl111' \
+-e WORDPRESS_DB_NAME='wordpress' \
+--name WordPress \
+wordpress

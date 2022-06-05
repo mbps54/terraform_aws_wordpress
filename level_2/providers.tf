@@ -19,7 +19,6 @@ provider "aws" {
   region = "eu-central-1"
 }
 
-
 data "terraform_remote_state" "level1" {
   backend = "s3"
   config = {

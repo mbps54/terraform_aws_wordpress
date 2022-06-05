@@ -3,14 +3,14 @@ Create AWS account
 Create IAM user "artem"
 Save Access key ID and Secret access key
 Create IAM group "devops" with only needed Policies:
-  AmazonRDSFullAccess	AWS managed	
-  AmazonEC2FullAccess	AWS managed	
-  SecretsManagerReadWrite	AWS managed	
-  IAMFullAccess	AWS managed	
-  ElasticLoadBalancingFullAccess	AWS managed	
-  AmazonS3FullAccess	AWS managed	
-  AmazonVPCFullAccess	AWS managed	
-  AmazonRoute53FullAccess	AWS managed	
+  AmazonRDSFullAccess	AWS managed
+  AmazonEC2FullAccess	AWS managed
+  SecretsManagerReadWrite	AWS managed
+  IAMFullAccess	AWS managed
+  ElasticLoadBalancingFullAccess	AWS managed
+  AmazonS3FullAccess	AWS managed
+  AmazonVPCFullAccess	AWS managed
+  AmazonRoute53FullAccess	AWS managed
   AWSCertificateManagerFullAccess
   AmazonDynamoDBFullAccess
 Attach user "artem" to group "devops"
