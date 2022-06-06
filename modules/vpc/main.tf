@@ -2,11 +2,9 @@ resource "aws_vpc" "main" {
   cidr_block = "10.0.0.0/16"
 }
 
-
 data "aws_availability_zones" "available" {
   state = "available"
 }
-
 
 resource "aws_subnet" "public" {
   count = length(var.public_cidr)
@@ -20,7 +18,6 @@ resource "aws_subnet" "public" {
   }
 }
 
-
 resource "aws_subnet" "private" {
   count = length(var.private_cidr)
 
@@ -33,7 +30,6 @@ resource "aws_subnet" "private" {
   }
 }
 
-
 resource "aws_internet_gateway" "main" {
   vpc_id = aws_vpc.main.id
 
@@ -41,7 +37,6 @@ resource "aws_internet_gateway" "main" {
     Name = "main"
   }
 }
-
 
 resource "aws_eip" "nat" {
   count = length(var.public_cidr)
@@ -51,7 +46,6 @@ resource "aws_eip" "nat" {
     Name = "${var.project}-ip-${count.index}"
   }
 }
-
 
 resource "aws_nat_gateway" "main" {
   count = length(var.private_cidr)
@@ -63,7 +57,6 @@ resource "aws_nat_gateway" "main" {
     Name = "${var.project}-main"
   }
 }
-
 
 resource "aws_route_table" "public" {
   vpc_id = aws_vpc.main.id
@@ -77,7 +70,6 @@ resource "aws_route_table" "public" {
     Name = "${var.project}-public"
   }
 }
-
 
 resource "aws_route_table" "private" {
   count = length(aws_nat_gateway.main)
@@ -93,7 +85,6 @@ resource "aws_route_table" "private" {
   }
 }
 
-
 resource "aws_route_table_association" "public" {
   count = length(var.public_cidr)
 
@@ -101,14 +92,12 @@ resource "aws_route_table_association" "public" {
   route_table_id = aws_route_table.public.id
 }
 
-
 resource "aws_route_table_association" "private" {
   count = length(var.private_cidr)
 
   subnet_id      = aws_subnet.private[count.index].id
   route_table_id = aws_route_table.private[count.index].id
 }
-
 
 resource "aws_security_group" "sg1" {
   name   = "sg1"

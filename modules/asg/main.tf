@@ -13,7 +13,6 @@ data "aws_ami" "ubuntu" {
   owners = ["099720109477"]
 }
 
-
 resource "aws_launch_configuration" "launch-config-1" {
   image_id                    = data.aws_ami.ubuntu.id
   instance_type               = "t2.micro"
@@ -29,7 +28,6 @@ resource "aws_launch_configuration" "launch-config-1" {
     create_before_destroy = true
   }
 }
-
 
 resource "aws_autoscaling_group" "asg-1" {
   name                      = "${var.project}-asg-1"
@@ -49,7 +47,6 @@ resource "aws_autoscaling_group" "asg-1" {
   }
 }
 
-
 resource "aws_autoscaling_policy" "asp-1" {
   name                   = "${var.project}-asp-1"
   scaling_adjustment     = 1
@@ -57,7 +54,6 @@ resource "aws_autoscaling_policy" "asp-1" {
   cooldown               = 180
   autoscaling_group_name = aws_autoscaling_group.asg-1.name
 }
-
 
 resource "aws_cloudwatch_metric_alarm" "alarm-1" {
   alarm_name          = "${var.project}-alarm-1"

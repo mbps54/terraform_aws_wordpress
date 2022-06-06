@@ -2,12 +2,10 @@ data "aws_secretsmanager_secret_version" "creds" {
   secret_id = "creds"
 }
 
-
 locals {
   db_creds = jsondecode(data.aws_secretsmanager_secret_version.creds.secret_string)
   project  = "WordPress"
 }
-
 
 module "db" {
   source            = "../modules/db"
@@ -17,14 +15,12 @@ module "db" {
   password          = local.db_creds.password
 }
 
-
 module "alb" {
   source    = "../modules/alb"
   project   = local.project
   vpc_id    = data.terraform_remote_state.level1.outputs.vpc_id
   subnet_id = data.terraform_remote_state.level1.outputs.public_subnet_id
 }
-
 
 module "asg" {
   source                 = "../modules/asg"
@@ -37,7 +33,6 @@ module "asg" {
   password               = local.db_creds.password
   rds_endpoint           = module.db.rds_endpoint
 }
-
 
 module "bastion" {
   source            = "../modules/ec2"

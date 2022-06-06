@@ -3,7 +3,6 @@ resource "aws_db_subnet_group" "private" {
   subnet_ids = var.private_subnet_id
 }
 
-
 resource "aws_db_instance" "dbmysql" {
   storage_type             = "gp2"
   allocated_storage        = 20
@@ -22,12 +21,10 @@ resource "aws_db_instance" "dbmysql" {
   vpc_security_group_ids   = [aws_security_group.rds-sg.id]
 }
 
-
 resource "aws_security_group" "rds-sg" {
   name   = "rds-sg"
   vpc_id = var.vpc_id
 }
-
 
 resource "aws_security_group_rule" "inbound_rule" {
   from_port         = 3306
@@ -37,7 +34,6 @@ resource "aws_security_group_rule" "inbound_rule" {
   type              = "ingress"
   cidr_blocks       = ["10.0.0.0/8"]
 }
-
 
 resource "aws_security_group_rule" "outbound_rule" {
   from_port         = 0
