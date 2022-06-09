@@ -14,3 +14,7 @@ variable "subnet_id" {
   description = "subnet_id"
   type        = list(any)
 }
+
+variable "security_group_id" {
+  type        = string
+}
