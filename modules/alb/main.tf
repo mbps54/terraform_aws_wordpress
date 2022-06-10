@@ -8,7 +8,7 @@ resource "aws_lb_target_group" "target-group-1" {
     unhealthy_threshold = 3
   }
 
-  name        = "${var.project}-target-group-1"
+  name        = "${var.project}-tg"
   port        = 80
   protocol    = "HTTP"
   target_type = "instance"
@@ -16,17 +16,17 @@ resource "aws_lb_target_group" "target-group-1" {
 }
 
 resource "aws_lb" "alb-1" {
-  name     = "${var.project}-alb-1"
+  name     = "${var.project}-alb"
   internal = false
 
   security_groups = [
-    aws_security_group.sg2.id,
+    var.security_group_id,
   ]
 
   subnets = var.subnet_id
 
   tags = {
-    Name = "${var.project}-alb-1"
+    Name = "${var.project}-alb"
   }
 
   ip_address_type    = "ipv4"
@@ -42,47 +42,6 @@ resource "aws_lb_listener" "alb-listner-1" {
     type             = "forward"
     target_group_arn = aws_lb_target_group.target-group-1.arn
   }
-}
-
-resource "aws_security_group" "sg2" {
-  name   = "sg2"
-  vpc_id = var.vpc_id
-}
-
-resource "aws_security_group_rule" "inbound_ssh" {
-  from_port         = 22
-  protocol          = "tcp"
-  security_group_id = aws_security_group.sg2.id
-  to_port           = 22
-  type              = "ingress"
-  cidr_blocks       = ["0.0.0.0/0"]
-}
-
-resource "aws_security_group_rule" "inbound_http" {
-  from_port         = 80
-  protocol          = "tcp"
-  security_group_id = aws_security_group.sg2.id
-  to_port           = 80
-  type              = "ingress"
-  cidr_blocks       = ["0.0.0.0/0"]
-}
-
-resource "aws_security_group_rule" "inbound_https" {
-  from_port         = 433
-  protocol          = "tcp"
-  security_group_id = aws_security_group.sg2.id
-  to_port           = 443
-  type              = "ingress"
-  cidr_blocks       = ["0.0.0.0/0"]
-}
-
-resource "aws_security_group_rule" "outbound_all" {
-  from_port         = 0
-  protocol          = "-1"
-  security_group_id = aws_security_group.sg2.id
-  to_port           = 0
-  type              = "egress"
-  cidr_blocks       = ["0.0.0.0/0"]
 }
 
 resource "aws_acm_certificate" "default" {
