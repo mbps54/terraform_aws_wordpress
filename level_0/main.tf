@@ -7,11 +7,9 @@ terraform {
   }
 }
 
-
 provider "aws" {
   region = "eu-central-1"
 }
-
 
 resource "aws_s3_bucket" "state_locking" {
   bucket = "state-locking-bucket"
@@ -33,7 +31,6 @@ resource "aws_s3_bucket" "state_locking" {
   }
 }
 
-
 resource "aws_dynamodb_table" "terraform_locks" {
   name         = "state-locking-db"
   billing_mode = "PAY_PER_REQUEST"
@@ -45,11 +42,9 @@ resource "aws_dynamodb_table" "terraform_locks" {
   }
 }
 
-
 output "s3_bucket_arn" {
   value = aws_s3_bucket.state_locking.arn
 }
-
 
 output "dynamodb_table_name" {
   value = aws_dynamodb_table.terraform_locks.name

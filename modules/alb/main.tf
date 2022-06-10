@@ -15,7 +15,6 @@ resource "aws_lb_target_group" "target-group-1" {
   vpc_id      = var.vpc_id
 }
 
-
 resource "aws_lb" "alb-1" {
   name     = "${var.project}-alb-1"
   internal = false
@@ -34,7 +33,6 @@ resource "aws_lb" "alb-1" {
   load_balancer_type = "application"
 }
 
-
 resource "aws_lb_listener" "alb-listner-1" {
   load_balancer_arn = aws_lb.alb-1.arn
   port              = 80
@@ -46,13 +44,10 @@ resource "aws_lb_listener" "alb-listner-1" {
   }
 }
 
-
-
 resource "aws_security_group" "sg2" {
   name   = "sg2"
   vpc_id = var.vpc_id
 }
-
 
 resource "aws_security_group_rule" "inbound_ssh" {
   from_port         = 22
@@ -63,7 +58,6 @@ resource "aws_security_group_rule" "inbound_ssh" {
   cidr_blocks       = ["0.0.0.0/0"]
 }
 
-
 resource "aws_security_group_rule" "inbound_http" {
   from_port         = 80
   protocol          = "tcp"
@@ -72,7 +66,6 @@ resource "aws_security_group_rule" "inbound_http" {
   type              = "ingress"
   cidr_blocks       = ["0.0.0.0/0"]
 }
-
 
 resource "aws_security_group_rule" "inbound_https" {
   from_port         = 433
@@ -83,7 +76,6 @@ resource "aws_security_group_rule" "inbound_https" {
   cidr_blocks       = ["0.0.0.0/0"]
 }
 
-
 resource "aws_security_group_rule" "outbound_all" {
   from_port         = 0
   protocol          = "-1"
@@ -93,12 +85,10 @@ resource "aws_security_group_rule" "outbound_all" {
   cidr_blocks       = ["0.0.0.0/0"]
 }
 
-
 resource "aws_acm_certificate" "default" {
   domain_name       = "tasucu.click"
   validation_method = "DNS"
 }
-
 
 data "aws_route53_zone" "external" {
   name = "tasucu.click"
@@ -113,7 +103,6 @@ resource "aws_route53_record" "validation" {
   ttl     = "60"
 }
 
-
 resource "aws_acm_certificate_validation" "default" {
   certificate_arn = "${aws_acm_certificate.default.arn}"
 
@@ -121,7 +110,6 @@ resource "aws_acm_certificate_validation" "default" {
     "${aws_route53_record.validation.fqdn}",
   ]
 }
-
 
 resource "aws_route53_record" "record-1" {
   zone_id = "Z0864870176T1RW93BUL9"
@@ -134,7 +122,6 @@ resource "aws_route53_record" "record-1" {
     evaluate_target_health = true
   }
 }
-
 
 #for HTTPS
 resource "aws_lb_listener" "alb-listner-2" {
