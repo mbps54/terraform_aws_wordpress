@@ -4,7 +4,7 @@ data "aws_secretsmanager_secret_version" "creds" {
 
 locals {
   db_creds = jsondecode(data.aws_secretsmanager_secret_version.creds.secret_string)
-  project  = "WordPress"
+  project  = "terraform-aws-wordpress"
 }
 
 module "db" {
