@@ -43,7 +43,7 @@ module "sg_mysql" {
       to_port     = 3306
       protocol    = "tcp"
       description = "Allow only TCP/3306 inbound traffic"
-      cidr_blocks = join(",", local.private_subnets)
+      cidr_blocks = join(",", local.private_subnets, local.public_subnets)
     },
   ]
 
@@ -107,7 +107,7 @@ module "sg_elb" {
   source = "terraform-aws-modules/security-group/aws"
 
   name        = "sg_elb"
-  description = "Security group for ec2 instances"
+  description = "Security group for elb"
   vpc_id      = local.vpc_id
 
   ingress_with_cidr_blocks = [
@@ -234,17 +234,22 @@ resource "aws_instance" "bastion" {
   }
 }
 
-resource "aws_launch_configuration" "launch-config-1" {
+resource "aws_launch_template" "launch-config-1" {
   name = "launch-config-1"
   image_id                    = data.aws_ami.ubuntu.id
   instance_type               = "t2.micro"
-  security_groups             = [module.sg_ec2.security_group_id]
-  associate_public_ip_address = false
-  key_name                    = "my-key-pair-1"
-  user_data = templatefile("startup.tpl",
+
+  network_interfaces {
+    associate_public_ip_address = false
+    security_groups = [module.sg_ec2.security_group_id]
+  }
+
+  key_name = "my-key-pair-1"
+
+  user_data = base64encode(templatefile("startup.tpl",
     { username = local.db_creds.username,
       password = local.db_creds.password,
-  rds_endpoint = module.db.db_instance_id })
+  rds_endpoint = module.db.db_instance_endpoint }))
 
   lifecycle {
     create_before_destroy = true
@@ -258,15 +263,11 @@ module "asg" {
 
   name = "${local.project}-asg"
 
-  depends_on = [aws_launch_configuration.launch-config-1]
+  depends_on = [aws_launch_template.launch-config-1]
 
-  create_launch_template      = true
-  launch_template_name        = aws_launch_configuration.launch-config-1.name
-  update_default_version      = true
+  create_launch_template = false
+  launch_template        = aws_launch_template.launch-config-1.name
 
-  image_id        = data.aws_ami.ubuntu.id
-  instance_type   = "t2.micro"
-  security_groups = [module.sg_ec2.security_group_id]
   load_balancers  = [module.elb.elb_id]
 
   vpc_zone_identifier       = local.private_subnets_ids
