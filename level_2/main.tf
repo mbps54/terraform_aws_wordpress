@@ -103,11 +103,11 @@ module "sg_ec2" {
   }
 }
 
-module "sg_asg" {
+module "sg_elb" {
   source = "terraform-aws-modules/security-group/aws"
 
-  name        = "sg_alb"
-  description = "Security group for load balancer"
+  name        = "sg_elb"
+  description = "Security group for ec2 instances"
   vpc_id      = local.vpc_id
 
   ingress_with_cidr_blocks = [
@@ -207,17 +207,11 @@ module "db" {
   maintenance_window = "Mon:00:00-Mon:03:00"
   backup_window      = "03:00-06:00"
 
-  # DB subnet group
-  create_db_subnet_group = false
+  create_db_subnet_group = true
   subnet_ids             = local.database_subnets_ids
 
-  # DB parameter group
   family = "mysql5.7"
-
-  # DB option group
   major_engine_version = "5.7"
-
-  # Database Deletion Protection
   deletion_protection = false
 
   tags = {
@@ -226,16 +220,31 @@ module "db" {
   }
 }
 
+resource "aws_instance" "bastion" {
+  ami                         = data.aws_ami.ubuntu.id
+  instance_type               = "t2.nano"
+  subnet_id                   = local.public_subnets_ids[0]
+  vpc_security_group_ids      = [module.sg_bastion.security_group_id]
+  associate_public_ip_address = true
+  key_name                    = "my-key-pair-1"
+
+  tags = {
+    Terraform   = "true"
+    Environment = "dev"
+  }
+}
+
 resource "aws_launch_configuration" "launch-config-1" {
+  name = "launch-config-1"
   image_id                    = data.aws_ami.ubuntu.id
   instance_type               = "t2.micro"
-  security_groups             = [var.security_group_id]
+  security_groups             = [module.sg_ec2.security_group_id]
   associate_public_ip_address = false
   key_name                    = "my-key-pair-1"
-  user_data = templatefile("${path.module}/startup.tpl",
-    { username     = local.db_creds.username,
-      password     = local.db_creds.password,
-      rds_endpoint = data.db.db_instance_id})
+  user_data = templatefile("startup.tpl",
+    { username = local.db_creds.username,
+      password = local.db_creds.password,
+  rds_endpoint = module.db.db_instance_id })
 
   lifecycle {
     create_before_destroy = true
@@ -249,15 +258,17 @@ module "asg" {
 
   name = "${local.project}-asg"
 
-  launch_configuration = "launch-config-1"
+  depends_on = [aws_launch_configuration.launch-config-1]
+
+  create_launch_template      = true
+  launch_template_name        = aws_launch_configuration.launch-config-1.name
+  update_default_version      = true
 
   image_id        = data.aws_ami.ubuntu.id
   instance_type   = "t2.micro"
-  security_groups = [module.sg_asg.security_group_id]
+  security_groups = [module.sg_ec2.security_group_id]
   load_balancers  = [module.elb.elb_id]
 
-  # Auto scaling group
-  asg_name                  = "${local.project}-asg"
   vpc_zone_identifier       = local.private_subnets_ids
   health_check_type         = "EC2"
   min_size                  = 1
@@ -277,7 +288,7 @@ module "elb" {
   name = "${local.project}-elb"
 
   subnets         = local.private_subnets_ids
-  security_groups = [module.sg_asg.security_group_id]
+  security_groups = [module.sg_elb.security_group_id]
   internal        = false
 
   listener = [
@@ -289,15 +300,13 @@ module "elb" {
     },
   ]
 
-  health_check = [
-    {
+  health_check = {
       target              = "HTTP:80/"
       interval            = 30
       healthy_threshold   = 2
       unhealthy_threshold = 2
       timeout             = 5
-    },
-  ]
+    }
 
   tags = {
     Terraform   = "true"
