@@ -58,6 +58,7 @@ module "sg_mysql" {
   ]
 
   tags = {
+    Name = "${local.project}_sg_mysql"
     Terraform   = "true"
     Environment = "dev"
   }
@@ -96,8 +97,8 @@ module "sg_ec2" {
       cidr_blocks = "0.0.0.0/0"
     },
   ]
-
   tags = {
+    Name = "${local.project}_sg_ec2"
     Terraform   = "true"
     Environment = "dev"
   }
@@ -138,6 +139,7 @@ module "sg_elb" {
   ]
 
   tags = {
+    Name = "${local.project}_sg_elb"
     Terraform   = "true"
     Environment = "dev"
   }
@@ -178,10 +180,10 @@ module "sg_bastion" {
   ]
 
   tags = {
+    Name = "${local.project}_sg_bastion"
     Terraform   = "true"
     Environment = "dev"
   }
-
 }
 
 module "db" {
@@ -216,6 +218,7 @@ module "db" {
   deletion_protection  = false
 
   tags = {
+    Name = "${local.project}_databasemysql"
     Terraform   = "true"
     Environment = "dev"
   }
@@ -230,6 +233,7 @@ resource "aws_instance" "bastion" {
   key_name                    = "wordpress"
 
   tags = {
+    Name = "${local.project}_bastion"
     Terraform   = "true"
     Environment = "dev"
   }
@@ -251,6 +255,12 @@ resource "aws_launch_template" "wordpress" {
     { username = local.db_creds.username,
       password = local.db_creds.password,
   rds_endpoint = module.db.db_instance_endpoint }))
+
+  tags = {
+    Name = "${local.project}_launch_templ"
+    Terraform   = "true"
+    Environment = "dev"
+  }
 
   lifecycle {
     create_before_destroy = true
@@ -275,6 +285,7 @@ module "asg" {
   wait_for_capacity_timeout = 0
 
   tags = {
+    Name = "${local.project}_asg"
     Terraform   = "true"
     Environment = "dev"
   }
@@ -317,6 +328,7 @@ module "elb" {
   }
 
   tags = {
+    Name = "${local.project}_elb"
     Terraform   = "true"
     Environment = "dev"
   }
@@ -325,6 +337,12 @@ module "elb" {
 resource "aws_acm_certificate" "default" {
   domain_name       = "tasucu.click"
   validation_method = "DNS"
+
+    tags = {
+    Name = "${local.project}_aws_cert"
+    Terraform   = "true"
+    Environment = "dev"
+  }
 }
 
 data "aws_route53_zone" "external" {
@@ -338,6 +356,12 @@ resource "aws_route53_record" "validation" {
   zone_id         = data.aws_route53_zone.external.zone_id
   records         = [tolist(aws_acm_certificate.default.domain_validation_options)[0].resource_record_value]
   ttl             = "60"
+
+  tags = {
+    Name = "${local.project}_dns_valid"
+    Terraform   = "true"
+    Environment = "dev"
+  }
 }
 
 resource "aws_acm_certificate_validation" "default" {
@@ -346,6 +370,12 @@ resource "aws_acm_certificate_validation" "default" {
   validation_record_fqdns = [
     "${aws_route53_record.validation.fqdn}",
   ]
+
+  tags = {
+    Name = "${local.project}_cert_valid"
+    Terraform   = "true"
+    Environment = "dev"
+  }
 }
 
 resource "aws_route53_record" "tasucu_click" {
@@ -357,5 +387,11 @@ resource "aws_route53_record" "tasucu_click" {
     name                   = module.elb.elb_dns_name
     zone_id                = module.elb.elb_zone_id
     evaluate_target_health = true
+  }
+
+  tags = {
+    Name = "${local.project}_dns_record"
+    Terraform   = "true"
+    Environment = "dev"
   }
 }
