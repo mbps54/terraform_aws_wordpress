@@ -257,8 +257,6 @@ resource "aws_launch_template" "launch-config-1" {
   }
 }
 
-#######################     EVERYTHING IS BAD BELOW    ########################
-
 module "asg" {
   source = "terraform-aws-modules/autoscaling/aws"
 
@@ -313,5 +311,43 @@ module "elb" {
   tags = {
     Terraform   = "true"
     Environment = "dev"
+  }
+}
+
+resource "aws_acm_certificate" "default" {
+  domain_name       = "tasucu.click"
+  validation_method = "DNS"
+}
+
+data "aws_route53_zone" "external" {
+  name = "tasucu.click"
+}
+
+resource "aws_route53_record" "validation" {
+  allow_overwrite = true
+  name            = tolist(aws_acm_certificate.default.domain_validation_options)[0].resource_record_name
+  type            = tolist(aws_acm_certificate.default.domain_validation_options)[0].resource_record_type
+  zone_id         = data.aws_route53_zone.external.zone_id
+  records         = [tolist(aws_acm_certificate.default.domain_validation_options)[0].resource_record_value]
+  ttl             = "60"
+}
+
+resource "aws_acm_certificate_validation" "default" {
+  certificate_arn = aws_acm_certificate.default.arn
+
+  validation_record_fqdns = [
+    "${aws_route53_record.validation.fqdn}",
+  ]
+}
+
+resource "aws_route53_record" "record-1" {
+  zone_id = "Z0864870176T1RW93BUL9"
+  name    = "tasucu.click"
+  type    = "A"
+
+  alias {
+    name                   = module.elb.elb_dns_name
+    zone_id                = module.elb.elb_zone_id
+    evaluate_target_health = true
   }
 }
