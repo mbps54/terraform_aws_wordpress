@@ -288,7 +288,7 @@ module "elb" {
 
   name = "${local.project}-elb"
 
-  subnets         = local.private_subnets_ids
+  subnets         = local.public_subnets_ids
   security_groups = [module.sg_elb.security_group_id]
   internal        = false
 
