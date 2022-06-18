@@ -200,7 +200,7 @@ module "db" {
   password = local.db_creds.password
   port     = "3306"
 
-  iam_database_authentication_enabled = true
+  iam_database_authentication_enabled = false
 
   vpc_security_group_ids = [module.sg_mysql.security_group_id]
 
@@ -209,10 +209,11 @@ module "db" {
 
   create_db_subnet_group = true
   subnet_ids             = local.database_subnets_ids
+  skip_final_snapshot    = true
 
-  family = "mysql5.7"
+  family               = "mysql5.7"
   major_engine_version = "5.7"
-  deletion_protection = false
+  deletion_protection  = false
 
   tags = {
     Terraform   = "true"
@@ -235,13 +236,13 @@ resource "aws_instance" "bastion" {
 }
 
 resource "aws_launch_template" "launch-config-1" {
-  name = "launch-config-1"
-  image_id                    = data.aws_ami.ubuntu.id
-  instance_type               = "t2.micro"
+  name          = "launch-config-1"
+  image_id      = data.aws_ami.ubuntu.id
+  instance_type = "t2.micro"
 
   network_interfaces {
     associate_public_ip_address = false
-    security_groups = [module.sg_ec2.security_group_id]
+    security_groups             = [module.sg_ec2.security_group_id]
   }
 
   key_name = "my-key-pair-1"
@@ -263,12 +264,10 @@ module "asg" {
 
   name = "${local.project}-asg"
 
-  depends_on = [aws_launch_template.launch-config-1]
-
   create_launch_template = false
   launch_template        = aws_launch_template.launch-config-1.name
 
-  load_balancers  = [module.elb.elb_id]
+  load_balancers = [module.elb.elb_id]
 
   vpc_zone_identifier       = local.private_subnets_ids
   health_check_type         = "EC2"
@@ -276,6 +275,8 @@ module "asg" {
   max_size                  = 2
   desired_capacity          = 1
   wait_for_capacity_timeout = 0
+
+  depends_on = [module.db]
 
   tags = {
     Terraform   = "true"
@@ -302,12 +303,12 @@ module "elb" {
   ]
 
   health_check = {
-      target              = "TCP:80"
-      interval            = 30
-      healthy_threshold   = 2
-      unhealthy_threshold = 2
-      timeout             = 5
-    }
+    target              = "TCP:80"
+    interval            = 30
+    healthy_threshold   = 2
+    unhealthy_threshold = 2
+    timeout             = 5
+  }
 
   tags = {
     Terraform   = "true"

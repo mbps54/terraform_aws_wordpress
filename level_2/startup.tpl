@@ -4,7 +4,8 @@ sudo apt-get install \
     ca-certificates \
     curl \
     gnupg \
-    lsb-release -y
+    lsb-release \
+    mysql-client-core-8.0 -y
 sudo mkdir -p /etc/apt/keyrings
 curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
 echo \
@@ -17,6 +18,17 @@ sudo su - ubuntu
 sudo groupadd docker
 sudo usermod -aG docker $USER
 newgrp docker
+
+RDS=$(echo ${rds_endpoint}| cut -d: -f1)
+
+if mysql -u${username} -p${password} -h ${rds_endpoint} -e 'USE wordpress'
+then
+  echo "table exists already"
+else
+  mysql -uartem -pJKL111jkl111 -h $RDS -e 'CREATE DATABASE wordpress'
+  echo "table created"
+fi
+
 docker run --name WordPress -p 80:80 -d \
 -e WORDPRESS_DB_HOST=${rds_endpoint} \
 -e WORDPRESS_DB_USER=${username} \
