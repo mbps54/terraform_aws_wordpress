@@ -15,6 +15,21 @@ locals {
   vailability_zones    = data.terraform_remote_state.level1.outputs.aws_availability_zones
 }
 
+data "aws_ami" "ubuntu" {
+  most_recent = true
+  filter {
+    name   = "name"
+    values = ["ubuntu/images/hvm-ssd/ubuntu-focal-20.04-amd64-server-*"]
+  }
+
+  filter {
+    name   = "virtualization-type"
+    values = ["hvm"]
+  }
+
+  owners = ["099720109477"]
+}
+
 module "sg_mysql" {
   source = "terraform-aws-modules/security-group/aws"
 
@@ -28,7 +43,7 @@ module "sg_mysql" {
       to_port     = 3306
       protocol    = "tcp"
       description = "Allow only TCP/3306 inbound traffic"
-      cidr_blocks = join(",", local.private_subnets)
+      cidr_blocks = join(",", local.private_subnets, local.public_subnets)
     },
   ]
 
@@ -41,43 +56,11 @@ module "sg_mysql" {
       cidr_blocks = "0.0.0.0/0"
     },
   ]
-}
 
-module "db" {
-  source = "terraform-aws-modules/rds/aws"
-
-  identifier = "databasemysql"
-
-  engine            = "mysql"
-  engine_version    = "5.7.25"
-  instance_class    = "db.t2.micro"
-  allocated_storage = 20
-  storage_encrypted = false
-
-  db_name  = "databasemysql"
-  username = local.db_creds.username
-  password = local.db_creds.password
-  port     = "3306"
-
-  iam_database_authentication_enabled = true
-
-  vpc_security_group_ids = [module.sg_mysql.security_group_id]
-
-  maintenance_window = "Mon:00:00-Mon:03:00"
-  backup_window      = "03:00-06:00"
-
-  # DB subnet group
-  create_db_subnet_group = true
-  subnet_ids             = local.database_subnets_ids
-
-  # DB parameter group
-  family = "mysql5.7"
-
-  # DB option group
-  major_engine_version = "5.7"
-
-  # Database Deletion Protection
-  deletion_protection = false
+  tags = {
+    Terraform   = "true"
+    Environment = "dev"
+  }
 }
 
 module "sg_ec2" {
@@ -113,13 +96,18 @@ module "sg_ec2" {
       cidr_blocks = "0.0.0.0/0"
     },
   ]
+
+  tags = {
+    Terraform   = "true"
+    Environment = "dev"
+  }
 }
 
-module "sg_alb" {
+module "sg_elb" {
   source = "terraform-aws-modules/security-group/aws"
 
-  name        = "sg_alb"
-  description = "Security group for load balancer"
+  name        = "sg_elb"
+  description = "Security group for elb"
   vpc_id      = local.vpc_id
 
   ingress_with_cidr_blocks = [
@@ -148,6 +136,11 @@ module "sg_alb" {
       cidr_blocks = "0.0.0.0/0"
     },
   ]
+
+  tags = {
+    Terraform   = "true"
+    Environment = "dev"
+  }
 }
 
 module "sg_bastion" {
@@ -183,31 +176,141 @@ module "sg_bastion" {
       cidr_blocks = "0.0.0.0/0"
     },
   ]
+
+  tags = {
+    Terraform   = "true"
+    Environment = "dev"
+  }
+
 }
 
-module "alb" {
-  source            = "../modules/alb"
-  project           = local.project
-  vpc_id            = local.vpc_id
-  subnet_id         = local.public_subnets_ids
-  security_group_id = module.sg_alb.security_group_id
+module "db" {
+  source = "terraform-aws-modules/rds/aws"
+
+  identifier = "databasemysql"
+
+  engine            = "mysql"
+  engine_version    = "5.7.25"
+  instance_class    = "db.t2.micro"
+  allocated_storage = 20
+  storage_encrypted = false
+
+  db_name  = "databasemysql"
+  username = local.db_creds.username
+  password = local.db_creds.password
+  port     = "3306"
+
+  iam_database_authentication_enabled = true
+
+  vpc_security_group_ids = [module.sg_mysql.security_group_id]
+
+  maintenance_window = "Mon:00:00-Mon:03:00"
+  backup_window      = "03:00-06:00"
+
+  create_db_subnet_group = true
+  subnet_ids             = local.database_subnets_ids
+
+  family = "mysql5.7"
+  major_engine_version = "5.7"
+  deletion_protection = false
+
+  tags = {
+    Terraform   = "true"
+    Environment = "dev"
+  }
 }
+
+resource "aws_instance" "bastion" {
+  ami                         = data.aws_ami.ubuntu.id
+  instance_type               = "t2.nano"
+  subnet_id                   = local.public_subnets_ids[0]
+  vpc_security_group_ids      = [module.sg_bastion.security_group_id]
+  associate_public_ip_address = true
+  key_name                    = "my-key-pair-1"
+
+  tags = {
+    Terraform   = "true"
+    Environment = "dev"
+  }
+}
+
+resource "aws_launch_template" "launch-config-1" {
+  name = "launch-config-1"
+  image_id                    = data.aws_ami.ubuntu.id
+  instance_type               = "t2.micro"
+
+  network_interfaces {
+    associate_public_ip_address = false
+    security_groups = [module.sg_ec2.security_group_id]
+  }
+
+  key_name = "my-key-pair-1"
+
+  user_data = base64encode(templatefile("startup.tpl",
+    { username = local.db_creds.username,
+      password = local.db_creds.password,
+  rds_endpoint = module.db.db_instance_endpoint }))
+
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
+#######################     EVERYTHING IS BAD BELOW    ########################
 
 module "asg" {
-  source                 = "../modules/asg"
-  project                = local.project
-  subnet_id              = local.private_subnets_ids
-  aws_availability_zones = local.vailability_zones
-  target_group_arns      = module.alb.target_group_arns
-  username               = local.db_creds.username
-  password               = local.db_creds.password
-  rds_endpoint           = module.db.db_instance_endpoint
-  security_group_id      = module.sg_ec2.security_group_id
+  source = "terraform-aws-modules/autoscaling/aws"
+
+  name = "${local.project}-asg"
+
+  depends_on = [aws_launch_template.launch-config-1]
+
+  create_launch_template = false
+  launch_template        = aws_launch_template.launch-config-1.name
+
+  load_balancers  = [module.elb.elb_id]
+
+  vpc_zone_identifier       = local.private_subnets_ids
+  health_check_type         = "EC2"
+  min_size                  = 1
+  max_size                  = 2
+  desired_capacity          = 1
+  wait_for_capacity_timeout = 0
+
+  tags = {
+    Terraform   = "true"
+    Environment = "dev"
+  }
 }
 
-module "bastion" {
-  source            = "../modules/ec2"
-  project           = local.project
-  subnet_id         = local.public_subnets_ids[0]
-  security_group_id = module.sg_bastion.security_group_id
+module "elb" {
+  source = "terraform-aws-modules/elb/aws"
+
+  name = "${local.project}-elb"
+
+  subnets         = local.public_subnets_ids
+  security_groups = [module.sg_elb.security_group_id]
+  internal        = false
+
+  listener = [
+    {
+      instance_port     = "80"
+      instance_protocol = "HTTP"
+      lb_port           = "80"
+      lb_protocol       = "HTTP"
+    },
+  ]
+
+  health_check = {
+      target              = "TCP:80"
+      interval            = 30
+      healthy_threshold   = 2
+      unhealthy_threshold = 2
+      timeout             = 5
+    }
+
+  tags = {
+    Terraform   = "true"
+    Environment = "dev"
+  }
 }

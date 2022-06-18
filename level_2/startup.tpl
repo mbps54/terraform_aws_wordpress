@@ -14,6 +14,9 @@ sudo apt-get update -y
 sudo apt-get install docker-ce docker-ce-cli containerd.io docker-compose-plugin -y
 sudo usermod -aG docker ubuntu
 sudo su - ubuntu
+sudo groupadd docker
+sudo usermod -aG docker $USER
+newgrp docker
 docker run --name WordPress -p 80:80 -d \
 -e WORDPRESS_DB_HOST=${rds_endpoint} \
 -e WORDPRESS_DB_USER=${username} \
