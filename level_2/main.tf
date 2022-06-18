@@ -298,6 +298,13 @@ module "elb" {
       lb_port           = "80"
       lb_protocol       = "HTTP"
     },
+    {
+      instance_port      = 80
+      instance_protocol  = "http"
+      lb_port            = 443
+      lb_protocol        = "https"
+      ssl_certificate_id = aws_acm_certificate.default.arn
+    },
   ]
 
   health_check = {
