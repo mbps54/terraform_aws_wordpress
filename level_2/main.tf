@@ -227,7 +227,7 @@ resource "aws_instance" "bastion" {
   subnet_id                   = local.public_subnets_ids[0]
   vpc_security_group_ids      = [module.sg_bastion.security_group_id]
   associate_public_ip_address = true
-  key_name                    = "my-key-pair-1"
+  key_name                    = "wordpress"
 
   tags = {
     Terraform   = "true"
@@ -235,8 +235,8 @@ resource "aws_instance" "bastion" {
   }
 }
 
-resource "aws_launch_template" "launch-config-1" {
-  name          = "launch-config-1"
+resource "aws_launch_template" "wordpress" {
+  name          = "wordpress"
   image_id      = data.aws_ami.ubuntu.id
   instance_type = "t2.micro"
 
@@ -245,7 +245,7 @@ resource "aws_launch_template" "launch-config-1" {
     security_groups             = [module.sg_ec2.security_group_id]
   }
 
-  key_name = "my-key-pair-1"
+  key_name = "wordpress"
 
   user_data = base64encode(templatefile("startup.tpl",
     { username = local.db_creds.username,
@@ -263,7 +263,7 @@ module "asg" {
   name = "${local.project}-asg"
 
   create_launch_template = false
-  launch_template        = aws_launch_template.launch-config-1.name
+  launch_template        = aws_launch_template.wordpress.name
 
   load_balancers = [module.elb.elb_id]
 
@@ -274,12 +274,13 @@ module "asg" {
   desired_capacity          = 1
   wait_for_capacity_timeout = 0
 
-  depends_on = [module.db]
-
   tags = {
     Terraform   = "true"
     Environment = "dev"
   }
+
+  depends_on = [module.db]
+
 }
 
 module "elb" {
@@ -347,7 +348,7 @@ resource "aws_acm_certificate_validation" "default" {
   ]
 }
 
-resource "aws_route53_record" "record-1" {
+resource "aws_route53_record" "tasucu_click" {
   zone_id = "Z0864870176T1RW93BUL9"
   name    = "tasucu.click"
   type    = "A"
