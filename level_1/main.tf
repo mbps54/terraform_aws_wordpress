@@ -9,7 +9,7 @@ module "vpc" {
   private_subnets  = ["10.1.101.0/24", "10.1.102.0/24"]
   database_subnets = ["10.1.201.0/24", "10.1.202.0/24"]
 
-#  create_database_subnet_group = true
+  #  create_database_subnet_group = true
 
   enable_ipv6 = false
 

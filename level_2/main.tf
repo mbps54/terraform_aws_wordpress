@@ -200,7 +200,7 @@ module "db" {
   password = local.db_creds.password
   port     = "3306"
 
-  iam_database_authentication_enabled = true
+  iam_database_authentication_enabled = false
 
   vpc_security_group_ids = [module.sg_mysql.security_group_id]
 
@@ -209,10 +209,11 @@ module "db" {
 
   create_db_subnet_group = true
   subnet_ids             = local.database_subnets_ids
+  skip_final_snapshot    = true
 
-  family = "mysql5.7"
+  family               = "mysql5.7"
   major_engine_version = "5.7"
-  deletion_protection = false
+  deletion_protection  = false
 
   tags = {
     Terraform   = "true"
@@ -235,13 +236,13 @@ resource "aws_instance" "bastion" {
 }
 
 resource "aws_launch_template" "launch-config-1" {
-  name = "launch-config-1"
-  image_id                    = data.aws_ami.ubuntu.id
-  instance_type               = "t2.micro"
+  name          = "launch-config-1"
+  image_id      = data.aws_ami.ubuntu.id
+  instance_type = "t2.micro"
 
   network_interfaces {
     associate_public_ip_address = false
-    security_groups = [module.sg_ec2.security_group_id]
+    security_groups             = [module.sg_ec2.security_group_id]
   }
 
   key_name = "my-key-pair-1"
@@ -256,19 +257,15 @@ resource "aws_launch_template" "launch-config-1" {
   }
 }
 
-#######################     EVERYTHING IS BAD BELOW    ########################
-
 module "asg" {
   source = "terraform-aws-modules/autoscaling/aws"
 
   name = "${local.project}-asg"
 
-  depends_on = [aws_launch_template.launch-config-1]
-
   create_launch_template = false
   launch_template        = aws_launch_template.launch-config-1.name
 
-  load_balancers  = [module.elb.elb_id]
+  load_balancers = [module.elb.elb_id]
 
   vpc_zone_identifier       = local.private_subnets_ids
   health_check_type         = "EC2"
@@ -276,6 +273,8 @@ module "asg" {
   max_size                  = 2
   desired_capacity          = 1
   wait_for_capacity_timeout = 0
+
+  depends_on = [module.db]
 
   tags = {
     Terraform   = "true"
@@ -299,18 +298,63 @@ module "elb" {
       lb_port           = "80"
       lb_protocol       = "HTTP"
     },
+    {
+      instance_port      = 80
+      instance_protocol  = "http"
+      lb_port            = 443
+      lb_protocol        = "https"
+      ssl_certificate_id = aws_acm_certificate.default.arn
+    },
   ]
 
   health_check = {
-      target              = "TCP:80"
-      interval            = 30
-      healthy_threshold   = 2
-      unhealthy_threshold = 2
-      timeout             = 5
-    }
+    target              = "TCP:80"
+    interval            = 30
+    healthy_threshold   = 2
+    unhealthy_threshold = 2
+    timeout             = 5
+  }
 
   tags = {
     Terraform   = "true"
     Environment = "dev"
+  }
+}
+
+resource "aws_acm_certificate" "default" {
+  domain_name       = "tasucu.click"
+  validation_method = "DNS"
+}
+
+data "aws_route53_zone" "external" {
+  name = "tasucu.click"
+}
+
+resource "aws_route53_record" "validation" {
+  allow_overwrite = true
+  name            = tolist(aws_acm_certificate.default.domain_validation_options)[0].resource_record_name
+  type            = tolist(aws_acm_certificate.default.domain_validation_options)[0].resource_record_type
+  zone_id         = data.aws_route53_zone.external.zone_id
+  records         = [tolist(aws_acm_certificate.default.domain_validation_options)[0].resource_record_value]
+  ttl             = "60"
+}
+
+resource "aws_acm_certificate_validation" "default" {
+  certificate_arn = aws_acm_certificate.default.arn
+
+  validation_record_fqdns = [
+    "${aws_route53_record.validation.fqdn}",
+  ]
+}
+
+resource "aws_route53_record" "record-1" {
+  zone_id = "Z0864870176T1RW93BUL9"
+  name    = "tasucu.click"
+  type    = "A"
+
+  alias {
+    name                   = module.elb.elb_dns_name
+    zone_id                = module.elb.elb_zone_id
+    evaluate_target_health = true
   }
 }
