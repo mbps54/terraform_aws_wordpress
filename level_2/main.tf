@@ -385,6 +385,4 @@ resource "aws_route53_record" "tasucu_click" {
     zone_id                = module.elb.elb_zone_id
     evaluate_target_health = true
   }
-
 }
-
