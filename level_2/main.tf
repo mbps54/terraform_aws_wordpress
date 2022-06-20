@@ -3,75 +3,17 @@ data "aws_secretsmanager_secret_version" "creds" {
 }
 
 locals {
-  db_creds             = jsondecode(data.aws_secretsmanager_secret_version.creds.secret_string)
-  project              = "terraform-aws-wordpress"
-  vpc_id               = data.terraform_remote_state.level1.outputs.vpc_id
-  public_subnets       = data.terraform_remote_state.level1.outputs.public_subnets
-  private_subnets      = data.terraform_remote_state.level1.outputs.private_subnets
-  database_subnets     = data.terraform_remote_state.level1.outputs.database_subnets
-  public_subnets_ids   = data.terraform_remote_state.level1.outputs.public_subnets_ids
-  private_subnets_ids  = data.terraform_remote_state.level1.outputs.private_subnets_ids
-  database_subnets_ids = data.terraform_remote_state.level1.outputs.database_subnets_ids
-  vailability_zones    = data.terraform_remote_state.level1.outputs.aws_availability_zones
-}
-
-resource "aws_iam_role" "s3_role" {
-  name               = "s3_iam_role"
-  assume_role_policy = <<EOF
-{
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Action": "sts:AssumeRole",
-      "Principal": {
-        "Service": "ec2.amazonaws.com"
-      },
-      "Effect": "Allow",
-      "Sid": ""
-    }
-  ]
-}
-EOF
-}
-
-resource "aws_iam_instance_profile" "s3_profile" {
-  name  = "s3_instance_profile"
-  role = aws_iam_role.s3_role.name
-}
-
-resource "aws_iam_role_policy" "s3_policy" {
-  name   = "s3_iam_role_policy"
-  role   = aws_iam_role.s3_role.id
-  policy = <<EOF
-{
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Effect": "Allow",
-      "Action": ["s3:ListBucket"],
-      "Resource": ["arn:aws:s3:::aws-terraform-wordpress-backups-bucket"]
-    },
-    {
-      "Effect": "Allow",
-      "Action": [
-        "s3:PutObject",
-        "s3:GetObject",
-        "s3:DeleteObject"
-      ],
-      "Resource": ["arn:aws:s3:::aws-terraform-wordpress-backups-bucket/*"]
-    }
-  ]
-}
-EOF
-}
-
-resource "aws_s3_bucket" "aws-terraform-wordpress-backups-bucket" {
-  bucket = "aws-terraform-wordpress-backups-bucket"
-}
-
-resource "aws_s3_bucket_acl" "aws-terraform-wordpress-backups-bucket" {
-  bucket = "aws-terraform-wordpress-backups-bucket"
-  acl    = "private"
+  db_creds                = jsondecode(data.aws_secretsmanager_secret_version.creds.secret_string)
+  project                 = "terraform-aws-wordpress"
+  vpc_id                  = data.terraform_remote_state.level1.outputs.vpc_id
+  public_subnets          = data.terraform_remote_state.level1.outputs.public_subnets
+  private_subnets         = data.terraform_remote_state.level1.outputs.private_subnets
+  database_subnets        = data.terraform_remote_state.level1.outputs.database_subnets
+  public_subnets_ids      = data.terraform_remote_state.level1.outputs.public_subnets_ids
+  private_subnets_ids     = data.terraform_remote_state.level1.outputs.private_subnets_ids
+  database_subnets_ids    = data.terraform_remote_state.level1.outputs.database_subnets_ids
+  vailability_zones       = data.terraform_remote_state.level1.outputs.aws_availability_zones
+  iam_instance_profile_s3 = data.terraform_remote_state.level1.outputs.iam_instance_profile_s3
 }
 
 data "aws_ami" "ubuntu" {
@@ -291,7 +233,7 @@ resource "aws_instance" "bastion" {
   associate_public_ip_address = true
   key_name                    = "wordpress"
 
-  iam_instance_profile = aws_iam_instance_profile.s3_profile.name
+  iam_instance_profile = local.iam_instance_profile_s3
 
   tags = {
     Name        = "${local.project}_bastion"
@@ -316,9 +258,9 @@ resource "aws_launch_template" "wordpress" {
     { username = local.db_creds.username,
       password = local.db_creds.password,
   rds_endpoint = module.db.db_instance_endpoint }))
-  
+
   iam_instance_profile {
-    name = aws_iam_instance_profile.s3_profile.name
+    name = local.iam_instance_profile_s3
   }
 
   tags = {

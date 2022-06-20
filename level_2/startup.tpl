@@ -22,16 +22,18 @@ newgrp docker
 
 RDS=$(echo ${rds_endpoint}| cut -d: -f1)
 
-if mysql -u${username} -p${password} -h ${rds_endpoint} -e 'USE wordpress'
+if mysql -u${username} -p${password} -h $RDS -e 'USE wordpress'
 then
   echo "table exists already"
 else
   aws s3 cp \
   s3://aws-terraform-wordpress-backups-bucket/wordpress_init_conf_dump.sql \
-  wordpress_init_conf_dump.sql
-  mysqldump -u${username} -p${password} -h ${rds_endpoint} \
-  wordpress < wordpress_init_conf_dump.sql
-  echo "Dump copied from S3"
+  wordpress_init_conf_dump.sql &&
+  mysql -u${username} -p${password} -h $RDS -e 'CREATE DATABASE wordpress'
+  mysqldump -u${username} -p${password} -h $RDS \
+  --column-statistics=0 \
+  wordpress < wordpress_init_conf_dump.sql &&
+  echo "dump copied from S3"
 fi
 
 docker run --name WordPress -p 80:80 -d \
