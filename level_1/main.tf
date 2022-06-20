@@ -19,6 +19,7 @@ module "vpc" {
   one_nat_gateway_per_az = true
 
   tags = {
+    Name = "dev-vpc"
     Terraform   = "true"
     Environment = "dev"
   }

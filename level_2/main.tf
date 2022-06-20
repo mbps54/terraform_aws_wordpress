@@ -58,6 +58,7 @@ module "sg_mysql" {
   ]
 
   tags = {
+    Name = "${local.project}_sg_mysql"
     Terraform   = "true"
     Environment = "dev"
   }
@@ -96,8 +97,8 @@ module "sg_ec2" {
       cidr_blocks = "0.0.0.0/0"
     },
   ]
-
   tags = {
+    Name = "${local.project}_sg_ec2"
     Terraform   = "true"
     Environment = "dev"
   }
@@ -138,6 +139,7 @@ module "sg_elb" {
   ]
 
   tags = {
+    Name = "${local.project}_sg_elb"
     Terraform   = "true"
     Environment = "dev"
   }
@@ -178,10 +180,10 @@ module "sg_bastion" {
   ]
 
   tags = {
+    Name = "${local.project}_sg_bastion"
     Terraform   = "true"
     Environment = "dev"
   }
-
 }
 
 module "db" {
@@ -216,6 +218,7 @@ module "db" {
   deletion_protection  = false
 
   tags = {
+    Name = "${local.project}_databasemysql"
     Terraform   = "true"
     Environment = "dev"
   }
@@ -227,16 +230,17 @@ resource "aws_instance" "bastion" {
   subnet_id                   = local.public_subnets_ids[0]
   vpc_security_group_ids      = [module.sg_bastion.security_group_id]
   associate_public_ip_address = true
-  key_name                    = "my-key-pair-1"
+  key_name                    = "wordpress"
 
   tags = {
+    Name = "${local.project}_bastion"
     Terraform   = "true"
     Environment = "dev"
   }
 }
 
-resource "aws_launch_template" "launch-config-1" {
-  name          = "launch-config-1"
+resource "aws_launch_template" "wordpress" {
+  name          = "wordpress"
   image_id      = data.aws_ami.ubuntu.id
   instance_type = "t2.micro"
 
@@ -245,12 +249,18 @@ resource "aws_launch_template" "launch-config-1" {
     security_groups             = [module.sg_ec2.security_group_id]
   }
 
-  key_name = "my-key-pair-1"
+  key_name = "wordpress"
 
   user_data = base64encode(templatefile("startup.tpl",
     { username = local.db_creds.username,
       password = local.db_creds.password,
   rds_endpoint = module.db.db_instance_endpoint }))
+
+  tags = {
+    Name = "${local.project}_launch_templ"
+    Terraform   = "true"
+    Environment = "dev"
+  }
 
   lifecycle {
     create_before_destroy = true
@@ -263,7 +273,7 @@ module "asg" {
   name = "${local.project}-asg"
 
   create_launch_template = false
-  launch_template        = aws_launch_template.launch-config-1.name
+  launch_template        = aws_launch_template.wordpress.name
 
   load_balancers = [module.elb.elb_id]
 
@@ -274,12 +284,14 @@ module "asg" {
   desired_capacity          = 1
   wait_for_capacity_timeout = 0
 
-  depends_on = [module.db]
-
   tags = {
+    Name = "${local.project}_asg"
     Terraform   = "true"
     Environment = "dev"
   }
+
+  depends_on = [module.db]
+
 }
 
 module "elb" {
@@ -316,6 +328,7 @@ module "elb" {
   }
 
   tags = {
+    Name = "${local.project}_elb"
     Terraform   = "true"
     Environment = "dev"
   }
@@ -324,6 +337,12 @@ module "elb" {
 resource "aws_acm_certificate" "default" {
   domain_name       = "tasucu.click"
   validation_method = "DNS"
+
+    tags = {
+    Name = "${local.project}_aws_cert"
+    Terraform   = "true"
+    Environment = "dev"
+  }
 }
 
 data "aws_route53_zone" "external" {
@@ -337,6 +356,12 @@ resource "aws_route53_record" "validation" {
   zone_id         = data.aws_route53_zone.external.zone_id
   records         = [tolist(aws_acm_certificate.default.domain_validation_options)[0].resource_record_value]
   ttl             = "60"
+
+  tags = {
+    Name = "${local.project}_dns_valid"
+    Terraform   = "true"
+    Environment = "dev"
+  }
 }
 
 resource "aws_acm_certificate_validation" "default" {
@@ -345,9 +370,15 @@ resource "aws_acm_certificate_validation" "default" {
   validation_record_fqdns = [
     "${aws_route53_record.validation.fqdn}",
   ]
+
+  tags = {
+    Name = "${local.project}_cert_valid"
+    Terraform   = "true"
+    Environment = "dev"
+  }
 }
 
-resource "aws_route53_record" "record-1" {
+resource "aws_route53_record" "tasucu_click" {
   zone_id = "Z0864870176T1RW93BUL9"
   name    = "tasucu.click"
   type    = "A"
@@ -356,5 +387,11 @@ resource "aws_route53_record" "record-1" {
     name                   = module.elb.elb_dns_name
     zone_id                = module.elb.elb_zone_id
     evaluate_target_health = true
+  }
+
+  tags = {
+    Name = "${local.project}_dns_record"
+    Terraform   = "true"
+    Environment = "dev"
   }
 }
