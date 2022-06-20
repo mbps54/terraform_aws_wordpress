@@ -15,6 +15,65 @@ locals {
   vailability_zones    = data.terraform_remote_state.level1.outputs.aws_availability_zones
 }
 
+resource "aws_iam_role" "s3_role" {
+  name               = "s3_iam_role"
+  assume_role_policy = <<EOF
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Action": "sts:AssumeRole",
+      "Principal": {
+        "Service": "ec2.amazonaws.com"
+      },
+      "Effect": "Allow",
+      "Sid": ""
+    }
+  ]
+}
+EOF
+}
+
+resource "aws_iam_instance_profile" "s3_profile" {
+  name  = "s3_instance_profile"
+  role = aws_iam_role.s3_role.name
+}
+
+resource "aws_iam_role_policy" "s3_policy" {
+  name   = "s3_iam_role_policy"
+  role   = aws_iam_role.s3_role.id
+  policy = <<EOF
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": ["s3:ListBucket"],
+      "Resource": ["arn:aws:s3:::aws-terraform-wordpress-backups-bucket"]
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
+        "s3:PutObject",
+        "s3:GetObject",
+        "s3:DeleteObject"
+      ],
+      "Resource": ["arn:aws:s3:::aws-terraform-wordpress-backups-bucket/*"]
+    }
+  ]
+}
+EOF
+}
+
+resource "aws_s3_bucket" "aws-terraform-wordpress-backups-bucket" {
+  bucket = "aws-terraform-wordpress-backups-bucket"
+}
+
+resource "aws_s3_bucket_acl" "aws-terraform-wordpress-backups-bucket" {
+  bucket = "aws-terraform-wordpress-backups-bucket"
+  acl    = "private"
+}
+
 data "aws_ami" "ubuntu" {
   most_recent = true
   filter {
@@ -58,7 +117,7 @@ module "sg_mysql" {
   ]
 
   tags = {
-    Name = "${local.project}_sg_mysql"
+    Name        = "${local.project}_sg_mysql"
     Terraform   = "true"
     Environment = "dev"
   }
@@ -98,7 +157,7 @@ module "sg_ec2" {
     },
   ]
   tags = {
-    Name = "${local.project}_sg_ec2"
+    Name        = "${local.project}_sg_ec2"
     Terraform   = "true"
     Environment = "dev"
   }
@@ -139,7 +198,7 @@ module "sg_elb" {
   ]
 
   tags = {
-    Name = "${local.project}_sg_elb"
+    Name        = "${local.project}_sg_elb"
     Terraform   = "true"
     Environment = "dev"
   }
@@ -180,7 +239,7 @@ module "sg_bastion" {
   ]
 
   tags = {
-    Name = "${local.project}_sg_bastion"
+    Name        = "${local.project}_sg_bastion"
     Terraform   = "true"
     Environment = "dev"
   }
@@ -218,7 +277,7 @@ module "db" {
   deletion_protection  = false
 
   tags = {
-    Name = "${local.project}_databasemysql"
+    Name        = "${local.project}_databasemysql"
     Terraform   = "true"
     Environment = "dev"
   }
@@ -232,8 +291,10 @@ resource "aws_instance" "bastion" {
   associate_public_ip_address = true
   key_name                    = "wordpress"
 
+  iam_instance_profile = aws_iam_instance_profile.s3_profile.name
+
   tags = {
-    Name = "${local.project}_bastion"
+    Name        = "${local.project}_bastion"
     Terraform   = "true"
     Environment = "dev"
   }
@@ -255,9 +316,13 @@ resource "aws_launch_template" "wordpress" {
     { username = local.db_creds.username,
       password = local.db_creds.password,
   rds_endpoint = module.db.db_instance_endpoint }))
+  
+  iam_instance_profile {
+    name = aws_iam_instance_profile.s3_profile.name
+  }
 
   tags = {
-    Name = "${local.project}_launch_templ"
+    Name        = "${local.project}_launch_templ"
     Terraform   = "true"
     Environment = "dev"
   }
@@ -285,7 +350,7 @@ module "asg" {
   wait_for_capacity_timeout = 0
 
   tags = {
-    Name = "${local.project}_asg"
+    Name        = "${local.project}_asg"
     Terraform   = "true"
     Environment = "dev"
   }
@@ -328,7 +393,7 @@ module "elb" {
   }
 
   tags = {
-    Name = "${local.project}_elb"
+    Name        = "${local.project}_elb"
     Terraform   = "true"
     Environment = "dev"
   }
@@ -338,8 +403,8 @@ resource "aws_acm_certificate" "default" {
   domain_name       = "tasucu.click"
   validation_method = "DNS"
 
-    tags = {
-    Name = "${local.project}_aws_cert"
+  tags = {
+    Name        = "${local.project}_aws_cert"
     Terraform   = "true"
     Environment = "dev"
   }
@@ -357,11 +422,6 @@ resource "aws_route53_record" "validation" {
   records         = [tolist(aws_acm_certificate.default.domain_validation_options)[0].resource_record_value]
   ttl             = "60"
 
-  tags = {
-    Name = "${local.project}_dns_valid"
-    Terraform   = "true"
-    Environment = "dev"
-  }
 }
 
 resource "aws_acm_certificate_validation" "default" {
@@ -371,11 +431,6 @@ resource "aws_acm_certificate_validation" "default" {
     "${aws_route53_record.validation.fqdn}",
   ]
 
-  tags = {
-    Name = "${local.project}_cert_valid"
-    Terraform   = "true"
-    Environment = "dev"
-  }
 }
 
 resource "aws_route53_record" "tasucu_click" {
@@ -389,9 +444,5 @@ resource "aws_route53_record" "tasucu_click" {
     evaluate_target_health = true
   }
 
-  tags = {
-    Name = "${local.project}_dns_record"
-    Terraform   = "true"
-    Environment = "dev"
-  }
 }
+

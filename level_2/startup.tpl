@@ -5,7 +5,8 @@ sudo apt-get install \
     curl \
     gnupg \
     lsb-release \
-    mysql-client-core-8.0 -y
+    mysql-client-core-8.0 \
+    awscli -y
 sudo mkdir -p /etc/apt/keyrings
 curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
 echo \
@@ -25,8 +26,12 @@ if mysql -u${username} -p${password} -h ${rds_endpoint} -e 'USE wordpress'
 then
   echo "table exists already"
 else
-  mysql -uartem -pJKL111jkl111 -h $RDS -e 'CREATE DATABASE wordpress'
-  echo "table created"
+  aws s3 cp \
+  s3://aws-terraform-wordpress-backups-bucket/wordpress_init_conf_dump.sql \
+  wordpress_init_conf_dump.sql
+  mysqldump -u${username} -p${password} -h ${rds_endpoint} \
+  wordpress < wordpress_init_conf_dump.sql
+  echo "Dump copied from S3"
 fi
 
 docker run --name WordPress -p 80:80 -d \
