@@ -30,8 +30,8 @@ else
   s3://aws-terraform-wordpress-backups-bucket/wordpress_init_conf_dump.sql \
   wordpress_init_conf_dump.sql &&
   mysql -u${username} -p${password} -h $RDS -e 'CREATE DATABASE wordpress'
-  mysqldump -u${username} -p${password} -h $RDS \
-  --column-statistics=0 \
+  mysqldump --column-statistics=0 \
+  -u${username} -p${password} -h $RDS \
   wordpress < wordpress_init_conf_dump.sql &&
   echo "dump copied from S3"
 fi
