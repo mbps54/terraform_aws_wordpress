@@ -236,7 +236,7 @@ resource "aws_instance" "bastion" {
   iam_instance_profile = local.iam_instance_profile_s3
 
   tags = {
-    Name        = "${local.project}_bastion"
+    Name        = "${local.project}-bastion"
     Terraform   = "true"
     Environment = "dev"
   }
