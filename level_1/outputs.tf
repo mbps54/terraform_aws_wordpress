@@ -37,3 +37,8 @@ output "database_subnets" {
   description = "A list of CIDRs of database subnets"
   value       = module.vpc.database_subnets_cidr_blocks
 }
+
+output "iam_instance_profile_s3" {
+  description = "IAM instance orofile for S3 bucket"
+  value       = aws_iam_instance_profile.s3_profile.name
+}

@@ -3,16 +3,17 @@ data "aws_secretsmanager_secret_version" "creds" {
 }
 
 locals {
-  db_creds             = jsondecode(data.aws_secretsmanager_secret_version.creds.secret_string)
-  project              = "terraform-aws-wordpress"
-  vpc_id               = data.terraform_remote_state.level1.outputs.vpc_id
-  public_subnets       = data.terraform_remote_state.level1.outputs.public_subnets
-  private_subnets      = data.terraform_remote_state.level1.outputs.private_subnets
-  database_subnets     = data.terraform_remote_state.level1.outputs.database_subnets
-  public_subnets_ids   = data.terraform_remote_state.level1.outputs.public_subnets_ids
-  private_subnets_ids  = data.terraform_remote_state.level1.outputs.private_subnets_ids
-  database_subnets_ids = data.terraform_remote_state.level1.outputs.database_subnets_ids
-  vailability_zones    = data.terraform_remote_state.level1.outputs.aws_availability_zones
+  db_creds                = jsondecode(data.aws_secretsmanager_secret_version.creds.secret_string)
+  project                 = "terraform-aws-wordpress"
+  vpc_id                  = data.terraform_remote_state.level1.outputs.vpc_id
+  public_subnets          = data.terraform_remote_state.level1.outputs.public_subnets
+  private_subnets         = data.terraform_remote_state.level1.outputs.private_subnets
+  database_subnets        = data.terraform_remote_state.level1.outputs.database_subnets
+  public_subnets_ids      = data.terraform_remote_state.level1.outputs.public_subnets_ids
+  private_subnets_ids     = data.terraform_remote_state.level1.outputs.private_subnets_ids
+  database_subnets_ids    = data.terraform_remote_state.level1.outputs.database_subnets_ids
+  vailability_zones       = data.terraform_remote_state.level1.outputs.aws_availability_zones
+  iam_instance_profile_s3 = data.terraform_remote_state.level1.outputs.iam_instance_profile_s3
 }
 
 data "aws_ami" "ubuntu" {
@@ -58,7 +59,7 @@ module "sg_mysql" {
   ]
 
   tags = {
-    Name = "${local.project}_sg_mysql"
+    Name        = "${local.project}_sg_mysql"
     Terraform   = "true"
     Environment = "dev"
   }
@@ -98,7 +99,7 @@ module "sg_ec2" {
     },
   ]
   tags = {
-    Name = "${local.project}_sg_ec2"
+    Name        = "${local.project}_sg_ec2"
     Terraform   = "true"
     Environment = "dev"
   }
@@ -139,7 +140,7 @@ module "sg_elb" {
   ]
 
   tags = {
-    Name = "${local.project}_sg_elb"
+    Name        = "${local.project}_sg_elb"
     Terraform   = "true"
     Environment = "dev"
   }
@@ -180,7 +181,7 @@ module "sg_bastion" {
   ]
 
   tags = {
-    Name = "${local.project}_sg_bastion"
+    Name        = "${local.project}_sg_bastion"
     Terraform   = "true"
     Environment = "dev"
   }
@@ -218,7 +219,7 @@ module "db" {
   deletion_protection  = false
 
   tags = {
-    Name = "${local.project}_databasemysql"
+    Name        = "${local.project}_databasemysql"
     Terraform   = "true"
     Environment = "dev"
   }
@@ -232,8 +233,10 @@ resource "aws_instance" "bastion" {
   associate_public_ip_address = true
   key_name                    = "wordpress"
 
+  iam_instance_profile = local.iam_instance_profile_s3
+
   tags = {
-    Name = "${local.project}_bastion"
+    Name        = "${local.project}-bastion"
     Terraform   = "true"
     Environment = "dev"
   }
@@ -256,8 +259,12 @@ resource "aws_launch_template" "wordpress" {
       password = local.db_creds.password,
   rds_endpoint = module.db.db_instance_endpoint }))
 
+  iam_instance_profile {
+    name = local.iam_instance_profile_s3
+  }
+
   tags = {
-    Name = "${local.project}_launch_templ"
+    Name        = "${local.project}_launch_templ"
     Terraform   = "true"
     Environment = "dev"
   }
@@ -285,7 +292,7 @@ module "asg" {
   wait_for_capacity_timeout = 0
 
   tags = {
-    Name = "${local.project}_asg"
+    Name        = "${local.project}_asg"
     Terraform   = "true"
     Environment = "dev"
   }
@@ -328,7 +335,7 @@ module "elb" {
   }
 
   tags = {
-    Name = "${local.project}_elb"
+    Name        = "${local.project}_elb"
     Terraform   = "true"
     Environment = "dev"
   }
@@ -338,8 +345,8 @@ resource "aws_acm_certificate" "default" {
   domain_name       = "tasucu.click"
   validation_method = "DNS"
 
-    tags = {
-    Name = "${local.project}_aws_cert"
+  tags = {
+    Name        = "${local.project}_aws_cert"
     Terraform   = "true"
     Environment = "dev"
   }
@@ -357,11 +364,6 @@ resource "aws_route53_record" "validation" {
   records         = [tolist(aws_acm_certificate.default.domain_validation_options)[0].resource_record_value]
   ttl             = "60"
 
-  tags = {
-    Name = "${local.project}_dns_valid"
-    Terraform   = "true"
-    Environment = "dev"
-  }
 }
 
 resource "aws_acm_certificate_validation" "default" {
@@ -371,11 +373,6 @@ resource "aws_acm_certificate_validation" "default" {
     "${aws_route53_record.validation.fqdn}",
   ]
 
-  tags = {
-    Name = "${local.project}_cert_valid"
-    Terraform   = "true"
-    Environment = "dev"
-  }
 }
 
 resource "aws_route53_record" "tasucu_click" {
@@ -387,11 +384,5 @@ resource "aws_route53_record" "tasucu_click" {
     name                   = module.elb.elb_dns_name
     zone_id                = module.elb.elb_zone_id
     evaluate_target_health = true
-  }
-
-  tags = {
-    Name = "${local.project}_dns_record"
-    Terraform   = "true"
-    Environment = "dev"
   }
 }
