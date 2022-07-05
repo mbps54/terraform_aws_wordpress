@@ -2,6 +2,13 @@
 
 ### Description
 Terraform allows to provision full infrastructure for WordPress web site.
+
+### AWS networking diagram
+![networking diagram](networking.jpg)
+
+### AWS security diagram
+![security diagram](security.jpg)
+
 ## level 0 (terraform, DB dump)
 - S3 bucket for Terraform remote state
 - DynamoDB database for Terraform remote state locking
