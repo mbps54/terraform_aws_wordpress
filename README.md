@@ -2,19 +2,19 @@
 
 ### Description
 Terraform allows to provision full infrastructure for WordPress web site. There are 3 layers (steps):
-## level0 (S3 buckets)
+## level 0 (S3 buckets)
 - S3 bucket for Terraform remote state
 - DynamoDB database for Terraform remote state locking
 - S3 bucket for MySQL database dump reserve copy
 
-## level1 (network infrastructure):
+## level 1 (network infrastructure):
 - VPC
 - Subnets
 - Routes
 - Inbternet gateway
 - NAT gateways
 
-## level2 (wordpress):
+## level 2 (wordpress):
 - SecretManager
 - SecurityGroups
 - MySQL database
