@@ -1,7 +1,7 @@
 ## WordPress App for a customer web site
 
 ### Description
-Terraform allows to provision full infrastructure for WordPress web site. There are 3 layers (steps):
+Terraform allows to provision full infrastructure for WordPress web site.
 ## level 0 (S3 buckets)
 - S3 bucket for Terraform remote state
 - DynamoDB database for Terraform remote state locking
